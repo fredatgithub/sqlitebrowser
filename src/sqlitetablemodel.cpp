@@ -364,15 +364,17 @@ QVariant SqliteTableModel::data(const QModelIndex &index, int role) const
         if(!row_available || data.isNull())
             return QVariant();
         QVariant decodedData = decode(data);
+        QVariant convertedData = decodedData;
+        bool converted = false;
         // For the edit role, return the data according to its column type if possible.
         if(m_vDataTypes.at(column) == SQLITE_INTEGER &&
            decodedData.canConvert(QMetaType::LongLong)) {
-            decodedData.convert(QMetaType::LongLong);
+            converted = convertedData.convert(QMetaType::LongLong);
         } else if(m_vDataTypes.at(column) == SQLITE_FLOAT &&
                   decodedData.canConvert(QMetaType::Double)) {
-            decodedData.convert(QMetaType::Double);
+            converted = convertedData.convert(QMetaType::Double);
         }
-        return decodedData;
+        return converted? convertedData : decodedData;
     } else if(role == Qt::FontRole) {
         QFont font = m_font;
         if(!row_available || data.isNull() || isBinary(data))
@@ -1045,7 +1047,12 @@ QModelIndex SqliteTableModel::nextMatch(const QModelIndex& start, const std::vec
 {
     // Extract flags
     bool whole_cell = !(flags & Qt::MatchContains);
-    bool regex = flags & Qt::MatchRegExp;
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    auto match_flag = Qt::MatchRegExp;
+#else
+    auto match_flag = Qt::MatchRegularExpression;
+#endif
+    bool regex = flags & match_flag;
     Qt::CaseSensitivity case_sensitive = ((flags & Qt::MatchCaseSensitive) ? Qt::CaseSensitive : Qt::CaseInsensitive);
     bool wrap = flags & Qt::MatchWrap;
     int increment = (reverse ? -1 : 1);
